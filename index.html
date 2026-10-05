@@ -22,8 +22,6 @@
     --text: #e8e8f0;
     --text-dim: #8a8aa0;
     --border: #2a2a45;
-    --glow: 0 0 20px rgba(0,240,255,.35);
-    --glow-2: 0 0 25px rgba(255,0,110,.45);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Arial,sans-serif; }
@@ -241,6 +239,25 @@
     box-shadow:0 0 12px rgba(255,0,110,.35);
   }
 
+  /* ===== Watch Now বাটন ===== */
+  .watch-btn {
+    margin-top:20px;
+    padding:12px 28px;
+    background:linear-gradient(135deg, var(--accent-2), #cc0058);
+    color:#fff;
+    border:none;
+    border-radius:25px;
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+    box-shadow:0 0 20px rgba(255,0,110,.5);
+    transition:all .3s;
+  }
+  .watch-btn:hover {
+    transform:scale(1.05);
+    box-shadow:0 0 30px rgba(255,0,110,.8);
+  }
+
   .error-box {
     color:var(--accent-2);
     padding:20px;
@@ -264,6 +281,7 @@
     border-radius:12px;
     margin:5px 0;
     min-height:100px;
+    position:relative;
   }
   .ad-container::before {
     content:'Advertisement';
@@ -274,7 +292,6 @@
     left:10px;
     letter-spacing:1px;
   }
-  .ad-container { position:relative; }
 
   @media (max-width:600px){
     header{padding:12px 15px;}
@@ -334,7 +351,6 @@ const CFG = {
   BASE: 'https://api.themoviedb.org/3',
   IMG: 'https://image.tmdb.org/t/p/w500',
   IMG_ORIG: 'https://image.tmdb.org/t/p/original',
-  // ===== Smartlink URL =====
   SMARTLINK: 'https://munchinexorable.com/yhhfigubzp?key=43baa875ab1fd6e063529d95926af941'
 };
 
@@ -351,9 +367,6 @@ const NATIVE_BANNER_HTML = `
     <div id="container-a5124b29140328ce66fdf8735b5e5a95"></div>
   </div>
 `;
-
-// ===== Native Banner এড়িয়ে যাওয়ার জন্য ট্র্যাকিং =====
-let adInserted = false;
 
 async function tmdb(path, params = '') {
   const url = `${CFG.BASE}${path}?api_key=${CFG.API_KEY}&language=en-US${params}`;
@@ -400,7 +413,7 @@ function renderCards(items, type = 'movie') {
     const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
     const mediaType = item.media_type || type;
 
-    // ===== প্রতি ৮টি কার্ডের পরে Native Banner Ad =====
+    // প্রতি ৮টি কার্ডের পরে Native Banner Ad
     let adHTML = '';
     if (index > 0 && index % 8 === 0) {
       adHTML = NATIVE_BANNER_HTML;
@@ -417,12 +430,12 @@ function renderCards(items, type = 'movie') {
       </div>`;
   }).join('');
 
-  // ===== একদম শেষে আরেকটি Native Banner Ad =====
+  // একদম শেষে আরেকটি Native Banner Ad
   cardsHTML += NATIVE_BANNER_HTML;
 
   resultsEl.innerHTML = cardsHTML;
 
-  // ===== Native Banner স্ক্রিপ্ট পুনরায় লোড (innerHTML এর কারণে) =====
+  // Native Banner স্ক্রিপ্ট পুনরায় লোড
   reloadNativeBanners();
 }
 
@@ -438,9 +451,27 @@ function reloadNativeBanners() {
   });
 }
 
-// ===== Smartlink ওপেন করার ফাংশন =====
-function openSmartlink() {
-  window.open(CFG.SMARTLINK, '_blank');
+// ===== Smartlink শুধু প্রথমবার ওপেন হবে =====
+function openSmartlink(movieTitle = '') {
+  const hasClicked = localStorage.getItem('smartlink_clicked');
+
+  if (!hasClicked) {
+    // প্রথমবার → স্মার্টলিংক ওপেন + localStorage এ সেভ
+    localStorage.setItem('smartlink_clicked', 'true');
+    window.open(CFG.SMARTLINK, '_blank');
+    console.log('✅ Smartlink opened (first time only)');
+  } else {
+    // দ্বিতীয়বার থেকে → সরাসরি মুভি ওপেন
+    console.log('🎬 Direct movie open (smartlink skipped)');
+    openMoviePlayer(movieTitle);
+  }
+}
+
+// ===== মুভি প্লে করার ফাংশন (Google Search) =====
+function openMoviePlayer(movieTitle) {
+  const searchQuery = encodeURIComponent(movieTitle + ' full movie');
+  window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
+  console.log('🎬 Opening movie:', movieTitle);
 }
 
 async function loadCategory(cat, btn) {
@@ -515,7 +546,9 @@ async function openDetails(id, type) {
     const date = d.release_date || d.first_air_date || '';
     const runtime = d.runtime ? `${d.runtime} min` : (d.number_of_seasons ? `${d.number_of_seasons} Season(s)` : '');
 
-    // ===== Watch Now বাটন সহ মোডাল =====
+    // টাইটেলের ভিতরের ' (single quote) এস্কেপ করা
+    const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
     modalBody.innerHTML = `
       <div style="height:250px;background:url('${backdrop}') center/cover;position:relative;">
         <div style="position:absolute;inset:0;background:linear-gradient(to top, #12121c, transparent);"></div>
@@ -531,7 +564,7 @@ async function openDetails(id, type) {
           </div>
           <p class="overview">${d.overview || 'কোনো বিবরণ নেই।'}</p>
           <div class="genres">${genres}</div>
-          <button onclick="openSmartlink()" style="margin-top:20px;padding:12px 28px;background:linear-gradient(135deg,var(--accent-2),#cc0058);color:#fff;border:none;border-radius:25px;font-size:15px;font-weight:bold;cursor:pointer;box-shadow:0 0 20px rgba(255,0,110,.5);transition:all .3s;">
+          <button class="watch-btn" onclick="openSmartlink('${safeTitle}')">
             ▶️ Watch Now
           </button>
         </div>
@@ -548,6 +581,7 @@ function closeModal() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+// ===== সাইট লোড হলে প্রথম ক্যাটাগরি দেখাবে =====
 loadCategory('trending', document.querySelector('nav button'));
 </script>
 </body>
